@@ -84,6 +84,11 @@ open class IKSpriteNode: SKSpriteNode, IKObject {
             if let space = newSpace {
                 self.position = space.computePosition(from: self._coordinates)
                 self.zPosition = space.computeZOrder(from: self._coordinates)
+
+                // Set the vertical anchor of the texture at half the height of the space tiles
+                // from the bottom. Base tiles will fit exactly and addition height will be pushed
+                // to the top.
+                self.anchorPoint.y = (space.tileSize.height / 2) / self.size.height
             }
         }
     }
