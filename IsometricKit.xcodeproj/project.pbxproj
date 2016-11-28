@@ -13,6 +13,7 @@
 		75B4A65C1DE88200004556E6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 75B4A65B1DE88200004556E6 /* Assets.xcassets */; };
 		75B4A65F1DE88200004556E6 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 75B4A65D1DE88200004556E6 /* Main.storyboard */; };
 		75B4A6671DE8832F004556E6 /* IsometricKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75B4A6661DE8832F004556E6 /* IsometricKit.swift */; };
+		75C692F71DEC7ABE001CF838 /* example.tmx in Resources */ = {isa = PBXBuildFile; fileRef = 75C692F61DEC7ABE001CF838 /* example.tmx */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -24,6 +25,7 @@
 		75B4A65E1DE88200004556E6 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		75B4A6601DE88200004556E6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		75B4A6661DE8832F004556E6 /* IsometricKit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = IsometricKit.swift; sourceTree = "<group>"; };
+		75C692F61DEC7ABE001CF838 /* example.tmx */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = example.tmx; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +58,7 @@
 		75B4A6501DE88200004556E6 /* IsometricKit */ = {
 			isa = PBXGroup;
 			children = (
+				75C692F61DEC7ABE001CF838 /* example.tmx */,
 				75B4A6661DE8832F004556E6 /* IsometricKit.swift */,
 				75B4A6511DE88200004556E6 /* AppDelegate.swift */,
 				75B4A6571DE88200004556E6 /* GameScene.swift */,
@@ -126,6 +129,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				75C692F71DEC7ABE001CF838 /* example.tmx in Resources */,
 				75B4A65C1DE88200004556E6 /* Assets.xcassets in Resources */,
 				75B4A65F1DE88200004556E6 /* Main.storyboard in Resources */,
 			);
@@ -296,6 +300,7 @@
 				75B4A6651DE88200004556E6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

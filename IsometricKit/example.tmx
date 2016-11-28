@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="isometric" renderorder="right-down" width="3" height="3" tilewidth="112" tileheight="64" nextobjectid="1">
+ <tileset firstgid="1" name="Voxel" tilewidth="111" tileheight="128" tilecount="3" columns="0">
+  <tile id="0">
+   <image width="111" height="128" source="Assets.xcassets/sand.imageset/sand.png"/>
+  </tile>
+  <tile id="1">
+   <image width="111" height="128" source="Assets.xcassets/snow.imageset/snow.png"/>
+  </tile>
+  <tile id="2">
+   <image width="111" height="128" source="Assets.xcassets/grass.imageset/grass.png"/>
+  </tile>
+ </tileset>
+ <layer name="Tile Layer 1" width="3" height="3">
+  <data>
+   <tile gid="1"/>
+   <tile gid="3"/>
+   <tile gid="3"/>
+   <tile gid="2"/>
+   <tile gid="1"/>
+   <tile gid="2"/>
+   <tile gid="2"/>
+   <tile gid="3"/>
+   <tile gid="1"/>
+  </data>
+ </layer>
+</map>
