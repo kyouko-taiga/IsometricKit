@@ -431,7 +431,7 @@ public class IKTMXParser: NSObject, XMLParserDelegate {
                 self._log("custom property was ignored")
             }
 
-        case "layer":
+        case "layer", "objectgroup":
             let layer = SKNode()
 
             // Parse the layer's offset.
@@ -461,6 +461,46 @@ public class IKTMXParser: NSObject, XMLParserDelegate {
             self._layers.append(layer)
             self._isParsingLayer = true
 
+        case "object":
+            // If the object has a property "gid", we'll fetch the corresponding texture to create
+            // an SKSpriteNode.
+            if let gid = readInt("gid", from: attributeDict) {
+                var object: IKSpriteNode? = nil
+
+                if let width = readInt("width", from: attributeDict),
+                   let height = readInt("height", from:attributeDict) {
+                    object = IKSpriteNode(
+                        texture: self._tileDefinitions[gid]?.texture,
+                        size: CGSize(width: width, height: height))
+                } else {
+                    object = IKSpriteNode(texture: self._tileDefinitions[gid]?.texture)
+                }
+
+                object!.name = attributeDict["name"]
+
+                // Parse the object position.
+                if let x = readInt("x", from: attributeDict),
+                   let y = readInt("y", from: attributeDict) {
+                    switch self._spaceType {
+                    case .diamond:
+                        object!.coordinates.x = CGFloat(x) / self._tileSize.height - 1
+                        object!.coordinates.y = CGFloat(y) / self._tileSize.height - 1
+                        object!.coordinates.z = self._currentCoordinates.z
+                    }
+                } else {
+                    self._log(
+                        "object \(attributeDict["id"]!) was ignored because its position " +
+                        "couldn't be parsed")
+                    return
+                }
+
+                self._layers.last!.addChild(object!)
+            } else {
+                // TODO: Handle non-sprite objects.
+                self._log("non-visible object was ignored")
+                return
+            }
+
         default:
             break
         }
@@ -487,7 +527,7 @@ public class IKTMXParser: NSObject, XMLParserDelegate {
         case "tile":
             self._currentTileDefinition = nil
 
-        case "layer":
+        case "layer", "objectgroup":
             self._isParsingLayer = false
             self._currentCoordinates = IKVector3.zero
 
