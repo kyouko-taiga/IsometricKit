@@ -26,7 +26,7 @@ public enum IKSpaceType: Int {
 }
 
 
-public struct IKVector3: DictionaryRepresentable {
+public struct IKVector3: DictionaryRepresentable, Hashable {
 
     public var x: CGFloat = 0
     public var y: CGFloat = 0
@@ -39,6 +39,16 @@ public struct IKVector3: DictionaryRepresentable {
     }
 
     public static let zero = IKVector3(x: 0, y: 0, z: 0)
+
+    // MARK: Equatable, Hashable
+
+    public var hashValue: Int {
+        return self.x.hashValue ^ self.y.hashValue ^ self.z.hashValue
+    }
+
+    public static func == (lhs: IKVector3, rhs: IKVector3) -> Bool {
+        return (lhs.x == rhs.x) && (lhs.y == rhs.y) && (lhs.z == rhs.z)
+    }
 
     // MARK: NSCoding
 
@@ -62,77 +72,89 @@ public struct IKVector3: DictionaryRepresentable {
 }
 
 
-// MARK: Predefined isometric nodes.
+// MARK: Tree objects.
 
-public protocol IKObject {
+open class IKHandle: NSObject, NSCoding {
 
-    var space: IKSpace? { get set }
-    var coordinates: IKVector3 { get set }
+    open let target: SKNode
 
-}
-
-
-open class IKSpriteNode: SKSpriteNode, IKObject {
-
-    open var space: IKSpace? {
-        get {
-            return self._space
-        }
-
-        set(newSpace) {
-            self._space = newSpace
-            if let space = newSpace {
-                self.position = space.computePosition(from: self._coordinates)
-                self.zPosition = space.computeZOrder(from: self._coordinates)
-
-                // Set the vertical anchor of the texture at half the height of the space tiles
-                // from the bottom. Base tiles will fit exactly and addition height will be pushed
-                // to the top.
-                self.anchorPoint.y = (space.tileSize.height / 2) / self.size.height
-            }
-        }
-    }
-
-    private weak var _space: IKSpace? = nil
-
-    open var coordinates: IKVector3 {
-        get {
-            return self._coordinates
-        }
-
-        set(newCoordinates) {
-            self._coordinates = newCoordinates
+    open weak var space: IKSpace? = nil {
+        didSet {
             if let space = self.space {
-                self.position = space.computePosition(from: newCoordinates)
-                self.zPosition = space.computeZOrder(from: newCoordinates)
+                self._setPosition(in: space)
+                self._setAnchorPoint(in: space)
+
+                // https://bugs.swift.org/browse/SR-419
+                self.children.forEach {
+                    $0.space = space
+                }
             }
         }
     }
 
-    private var _coordinates: IKVector3 = IKVector3.zero
+    open var coordinates: IKVector3 = IKVector3.zero {
+        didSet {
+            if let space = self.space {
+                self._setPosition(in: space)
+            }
+        }
+    }
 
-    public override init(texture: SKTexture?, color: NSColor, size: CGSize) {
-        super.init(texture: texture, color: color, size: size)
+    open private(set) weak var parent: IKHandle? = nil
+    open private(set) var children = Set<IKHandle>()
+
+    init(on target: SKNode = SKNode(), in space: IKSpace? = nil) {
+        self.target = target
+        self.space = space
+    }
+
+    open func addChild(_ handle: IKHandle) {
+        if !self.children.contains(handle) {
+            self.children.insert(handle)
+            self.target.addChild(handle.target)
+
+            handle.space = self.space
+            handle.parent = self
+        }
+    }
+
+    private func _setPosition(in space: IKSpace) {
+        self.target.position = space.computePosition(from: self.coordinates)
+        self.target.zPosition = space.computeZOrder(from: self.coordinates)
+    }
+
+    private func _setAnchorPoint(in space: IKSpace) {
+        if let sprite = self.target as? SKSpriteNode {
+            // Set the anchor of textures at half the height of the space tiles from the bottom.
+            // Base tiles will fit exactly and addition height will be pushed to the top.
+            sprite.anchorPoint.y = (space.tileSize.height / 2) / sprite.size.height
+        }
     }
 
     // MARK: NSCoding
 
     required public init?(coder aDecoder: NSCoder) {
-        guard let coordinates = IKVector3(
-            repr: aDecoder.decodeObject(forKey: "IKSpriteNode.coordinates") as? NSDictionary)
+        guard let target = aDecoder.decodeObject(forKey: "IKHandle.target") as? SKNode,
+              let coordinates = IKVector3(
+                repr: aDecoder.decodeObject(forKey: "IKHandle.coordinates") as? NSDictionary),
+              let children = aDecoder.decodeObject(forKey: "IKHandle.children") as? Set<IKHandle>
             else {
                 return nil
         }
 
-        self._coordinates = coordinates
-
-        super.init(coder: aDecoder)
+        self.target = target
+        self.space = aDecoder.decodeObject(forKey: "IKHandle.space") as? IKSpace
+        self.coordinates = coordinates
+        self.children = children
+        self.parent = aDecoder.decodeObject(forKey: "IKHandle.parent") as? IKHandle
     }
 
-    open override func encode(with aCoder: NSCoder) {
-        aCoder.encode(self.coordinates.repr, forKey: "IKSpriteNode.worldSize")
-
-        super.encode(with: aCoder)
+    open func encode(with aCoder: NSCoder) {
+        aCoder.encode(self.space, forKey: "IKHandle.space")
+        aCoder.encode(self.target, forKey: "IKHandle.target")
+        aCoder.encode(self.coordinates.repr, forKey: "IKHandle.coordinates")
+        aCoder.encode(self.parent, forKey: "IKHandle.parent")
+        aCoder.encode(self.children, forKey: "IKHandle.children")
     }
 
 }
@@ -140,19 +162,11 @@ open class IKSpriteNode: SKSpriteNode, IKObject {
 
 // MARK: IKSpace
 
-open class IKSpace: SKNode {
+open class IKSpace: IKHandle {
 
     open let type: IKSpaceType
     open let tileSize: CGSize
     open let worldSize: IKVector3
-
-    open override var frame: CGRect {
-        return CGRect(
-            origin: self.position,
-            size: CGSize(
-                width: self.worldSize.x * self.tileSize.width,
-                height:(self.worldSize.y + self.worldSize.z - 1) * self.tileSize.height))
-    }
 
     public init(tileSize: CGSize, worldSize: IKVector3, type: IKSpaceType = .diamond) {
         self.type = type
@@ -160,11 +174,7 @@ open class IKSpace: SKNode {
         self.worldSize = worldSize
 
         super.init()
-    }
-
-    open override func addChild(_ node: SKNode) {
-        self._setSpace(of: node)
-        super.addChild(node)
+        self.space = self
     }
 
     open func computePosition(from coordinates: IKVector3) -> CGPoint {
@@ -228,16 +238,6 @@ open class IKSpace: SKNode {
         super.encode(with: aCoder)
     }
 
-    private func _setSpace(of node: SKNode) {
-        if var isometricObject = node as? IKObject {
-            isometricObject.space = self
-        }
-
-        for child in node.children {
-            self._setSpace(of: child)
-        }
-    }
-
 }
 
 
@@ -261,7 +261,7 @@ public class IKTMXParser: NSObject, XMLParserDelegate {
     private var _tileDefinitions = [Int: TileDefinition]()
 
     private var _isParsingLayer = false
-    private var _layers = [SKNode]()
+    private var _layers = [IKHandle]()
     private var _currentCoordinates = IKVector3.zero
 
     private var _currentFirstGID: Int? = nil
@@ -369,9 +369,9 @@ public class IKTMXParser: NSObject, XMLParserDelegate {
                 }
 
                 // Place the new tile at the current poistion.
-                let tile = IKSpriteNode(texture: tileDefinition.texture)
-                tile.userData = tileDefinition.userData
+                let tile = IKHandle(on: SKSpriteNode(texture: tileDefinition.texture))
                 tile.coordinates = self._currentCoordinates
+                tile.target.userData = tileDefinition.userData
 
                 self._layers.last!.addChild(tile)
 
@@ -432,14 +432,14 @@ public class IKTMXParser: NSObject, XMLParserDelegate {
             }
 
         case "layer", "objectgroup":
-            let layer = SKNode()
+            let layer = IKHandle()
 
             // Parse the layer's offset.
             if let offsetX = readInt("offsetx", from: attributeDict) {
-                layer.position.x = CGFloat(offsetX)
+                layer.target.position.x = CGFloat(offsetX)
             }
             if let offsetY = readInt("offsety", from: attributeDict) {
-                layer.position.y = CGFloat(offsetY)
+                layer.target.position.y = CGFloat(offsetY)
             }
 
             // If the name of the layer ends with "+n" (where n is any number), we'll interpret n
@@ -447,59 +447,57 @@ public class IKTMXParser: NSObject, XMLParserDelegate {
             let name = attributeDict["name"]
             if let suffix = name?.range(of: "\\+\\d+", options: .regularExpression) {
                 let z = CGFloat(Int(String(name!.substring(with: suffix).characters.dropFirst()))!)
-                self._currentCoordinates.z = z
 
                 // Update the maximum z-coordinate of the world size.
                 self._worldSize.z = max(self._worldSize.z, z)
 
                 // Correct the layer's y-offset so that the shift due to the z-coordinate is
                 // applied correctly.
-                layer.position.y += z * self._tileSize.height
+                layer.target.position.y += z * self._tileSize.height
+                layer.coordinates.z = z
             }
 
-            layer.name = name
+            layer.target.name = name
             self._layers.append(layer)
             self._isParsingLayer = true
 
         case "object":
+            var handle: IKHandle? = nil
+
             // If the object has a property "gid", we'll fetch the corresponding texture to create
             // an SKSpriteNode.
             if let gid = readInt("gid", from: attributeDict) {
-                var object: IKSpriteNode? = nil
-
                 if let width = readInt("width", from: attributeDict),
                    let height = readInt("height", from:attributeDict) {
-                    object = IKSpriteNode(
+                    handle = IKHandle(on: SKSpriteNode(
                         texture: self._tileDefinitions[gid]?.texture,
-                        size: CGSize(width: width, height: height))
+                        size: CGSize(width: width, height: height)))
                 } else {
-                    object = IKSpriteNode(texture: self._tileDefinitions[gid]?.texture)
+                    handle = IKHandle(on: SKSpriteNode(
+                        texture: self._tileDefinitions[gid]?.texture))
                 }
-
-                object!.name = attributeDict["name"]
-
-                // Parse the object position.
-                if let x = readInt("x", from: attributeDict),
-                   let y = readInt("y", from: attributeDict) {
-                    switch self._spaceType {
-                    case .diamond:
-                        object!.coordinates.x = CGFloat(x) / self._tileSize.height - 1
-                        object!.coordinates.y = CGFloat(y) / self._tileSize.height - 1
-                        object!.coordinates.z = self._currentCoordinates.z
-                    }
-                } else {
-                    self._log(
-                        "object \(attributeDict["id"]!) was ignored because its position " +
-                        "couldn't be parsed")
-                    return
-                }
-
-                self._layers.last!.addChild(object!)
             } else {
-                // TODO: Handle non-sprite objects.
-                self._log("non-visible object was ignored")
+                handle = IKHandle()
+            }
+
+            handle!.target.name = attributeDict["name"]
+
+            // Parse the object position.
+            if let x = readInt("x", from: attributeDict),
+                let y = readInt("y", from: attributeDict) {
+                switch self._spaceType {
+                case .diamond:
+                    handle!.coordinates.x = CGFloat(x) / self._tileSize.height - 1
+                    handle!.coordinates.y = CGFloat(y) / self._tileSize.height - 1
+                }
+            } else {
+                self._log(
+                    "object \(attributeDict["id"]!) was ignored because its position couldn't " +
+                    "be parsed")
                 return
             }
+
+            self._layers.last!.addChild(handle!)
 
         default:
             break
